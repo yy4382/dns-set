@@ -7,7 +7,8 @@ A command-line tool for automatically managing DNS records on DNS providers, des
 - **Multiple domain sources**: Manually input domains or parse from Caddyfile with interactive selection
 - **Flexible IP detection**: Choose from network interface detection, external API queries (ip.sb), or manual input
 - **DNS provider support**: Cloudflare integration with API token authentication
-- **Record types**: Supports both A (IPv4) and AAAA (IPv6) records
+- **Record types**: Supports both A (IPv4) and AAAA (IPv6) records with TTL auto
+- **Proxy control**: Choose between DNS-only (grey cloud) or proxied (yellow cloud) status
 - **Configuration management**: Settings saved to `~/.config/dns-set/` with environment variable overrides
 - **Interactive CLI**: User-friendly command-line interface with planned TUI upgrade
 
@@ -40,6 +41,8 @@ go install github.com/yy4382/dns-set@latest
 3. **Follow interactive prompts** to:
    - Choose domain source (manual input or Caddyfile)
    - Select IP detection method
+   - Choose record types (A, AAAA, or both)
+   - Select proxy status (DNS-only or proxied)
    - Choose which domains to update
    - Confirm DNS record changes
 

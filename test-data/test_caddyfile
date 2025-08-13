@@ -1,0 +1,7 @@
+example.com {
+    root * /var/www
+}
+
+api.example.com {
+    reverse_proxy localhost:3000
+}

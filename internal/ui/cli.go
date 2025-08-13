@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -56,6 +57,11 @@ func (c *CLI) Run() error {
 		return fmt.Errorf("failed to select record types: %w", err)
 	}
 
+	proxied, err := c.selectProxyStatus()
+	if err != nil {
+		return fmt.Errorf("failed to select proxy status: %w", err)
+	}
+
 	for _, recordType := range recordTypes {
 		var ip net.IP
 		var err error
@@ -76,11 +82,16 @@ func (c *CLI) Run() error {
 		for _, domain := range selectedDomains {
 			fmt.Printf("Updating %s record for %s...\n", recordType, domain)
 			
-			err = c.provider.UpdateRecord(domain, recordType, ip, c.config.Preferences.DefaultTTL)
+			// Use TTL auto (0) instead of config default
+			err = c.provider.UpdateRecord(domain, recordType, ip, 0, proxied)
 			if err != nil {
 				fmt.Printf("Failed to update %s record for %s: %v\n", recordType, domain, err)
 			} else {
-				fmt.Printf("Successfully updated %s record for %s\n", recordType, domain)
+				proxyStatus := "DNS only"
+				if proxied {
+					proxyStatus = "Proxied"
+				}
+				fmt.Printf("Successfully updated %s record for %s (%s)\n", recordType, domain, proxyStatus)
 			}
 		}
 	}
@@ -103,7 +114,11 @@ func (c *CLI) selectDomainSource() (domain.DomainSource, error) {
 	case 1:
 		return domain.NewManualSource(), nil
 	case 2:
-		return domain.NewCaddyfileSource(c.config.Preferences.CaddyfilePath), nil
+		caddyfilePath, err := c.promptCaddyfilePath(c.config.Preferences.CaddyfilePath)
+		if err != nil {
+			return nil, err
+		}
+		return domain.NewCaddyfileSource(caddyfilePath), nil
 	default:
 		return nil, fmt.Errorf("invalid choice")
 	}
@@ -193,6 +208,19 @@ func (c *CLI) selectRecordTypes() ([]dns.RecordType, error) {
 	}
 }
 
+func (c *CLI) selectProxyStatus() (bool, error) {
+	fmt.Println("\nSelect Cloudflare proxy status:")
+	fmt.Println("1. DNS only (grey cloud)")
+	fmt.Println("2. Proxied (yellow cloud)")
+
+	choice, err := c.promptChoice("Enter choice (1-2): ", 1, 2)
+	if err != nil {
+		return false, err
+	}
+
+	return choice == 2, nil
+}
+
 func (c *CLI) promptChoice(prompt string, min, max int) (int, error) {
 	for {
 		fmt.Print(prompt)
@@ -214,4 +242,40 @@ func (c *CLI) promptChoice(prompt string, min, max int) (int, error) {
 
 		return choice, nil
 	}
+}
+
+func (c *CLI) promptCaddyfilePath(defaultPath string) (string, error) {
+	if _, err := os.Stat(defaultPath); err == nil {
+		return defaultPath, nil
+	}
+
+	fmt.Printf("Caddyfile not found at %s\n", defaultPath)
+	fmt.Print("Please enter Caddyfile path (absolute or relative to current directory): ")
+	
+	if !c.scanner.Scan() {
+		return "", fmt.Errorf("failed to read input")
+	}
+	
+	userPath := strings.TrimSpace(c.scanner.Text())
+	if userPath == "" {
+		return "", fmt.Errorf("no path provided")
+	}
+
+	var resolvedPath string
+	if filepath.IsAbs(userPath) {
+		resolvedPath = userPath
+	} else {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current working directory: %w", err)
+		}
+		resolvedPath = filepath.Join(cwd, userPath)
+	}
+
+	if _, err := os.Stat(resolvedPath); err != nil {
+		return "", fmt.Errorf("Caddyfile not found at %s: %w", resolvedPath, err)
+	}
+
+	fmt.Printf("Using Caddyfile: %s\n", resolvedPath)
+	return resolvedPath, nil
 }

@@ -15,10 +15,11 @@ type Record struct {
 	Type    RecordType
 	Content string
 	TTL     int
+	Proxied bool
 }
 
 type DNSProvider interface {
-	UpdateRecord(domain string, recordType RecordType, ip net.IP, ttl int) error
+	UpdateRecord(domain string, recordType RecordType, ip net.IP, ttl int, proxied bool) error
 	ListRecords(domain string) ([]Record, error)
 	Name() string
 }

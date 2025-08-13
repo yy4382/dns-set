@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/cloudflare/cloudflare-go"
 )
@@ -21,7 +22,7 @@ func NewCloudflareProvider(apiToken string) (*CloudflareProvider, error) {
 	return &CloudflareProvider{api: api}, nil
 }
 
-func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, ip net.IP, ttl int) error {
+func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, ip net.IP, ttl int, proxied bool) error {
 	ctx := context.Background()
 
 	zoneID, err := c.getZoneID(ctx, domain)
@@ -39,6 +40,10 @@ func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, 
 	}
 
 	ipStr := ip.String()
+	// Use TTL auto (1) when TTL is set to auto
+	if ttl == 0 {
+		ttl = 1 // Cloudflare's auto TTL
+	}
 	
 	if len(records) == 0 {
 		_, err = c.api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
@@ -46,6 +51,7 @@ func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, 
 			Type:    string(recordType),
 			Content: ipStr,
 			TTL:     ttl,
+			Proxied: &proxied,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create DNS record: %w", err)
@@ -54,7 +60,7 @@ func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, 
 	}
 
 	for _, record := range records {
-		if record.Content == ipStr {
+		if record.Content == ipStr && *record.Proxied == proxied {
 			continue
 		}
 
@@ -64,6 +70,7 @@ func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, 
 			Type:    string(recordType),
 			Content: ipStr,
 			TTL:     ttl,
+			Proxied: &proxied,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update DNS record: %w", err)
@@ -97,6 +104,7 @@ func (c *CloudflareProvider) ListRecords(domain string) ([]Record, error) {
 				Type:    RecordType(cfRecord.Type),
 				Content: cfRecord.Content,
 				TTL:     cfRecord.TTL,
+				Proxied: *cfRecord.Proxied,
 			})
 		}
 	}
@@ -105,7 +113,10 @@ func (c *CloudflareProvider) ListRecords(domain string) ([]Record, error) {
 }
 
 func (c *CloudflareProvider) getZoneID(ctx context.Context, domain string) (string, error) {
-	zones, err := c.api.ListZones(ctx, domain)
+	// Extract root domain from subdomain (e.g., test.yyang.dev -> yyang.dev)
+	rootDomain := extractRootDomain(domain)
+	
+	zones, err := c.api.ListZones(ctx, rootDomain)
 	if err != nil {
 		return "", fmt.Errorf("failed to list zones: %w", err)
 	}
@@ -115,6 +126,18 @@ func (c *CloudflareProvider) getZoneID(ctx context.Context, domain string) (stri
 	}
 
 	return zones[0].ID, nil
+}
+
+// extractRootDomain extracts the root domain from a (sub)domain
+// e.g., test.yyang.dev -> yyang.dev, yyang.dev -> yyang.dev
+func extractRootDomain(domain string) string {
+	parts := strings.Split(domain, ".")
+	if len(parts) <= 2 {
+		return domain // Already a root domain or invalid
+	}
+	
+	// Return last two parts (domain.tld)
+	return strings.Join(parts[len(parts)-2:], ".")
 }
 
 func (c *CloudflareProvider) Name() string {
