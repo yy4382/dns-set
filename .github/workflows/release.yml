@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Get tag name
+      id: tag
+      run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Build binaries
+      run: |
+        mkdir -p dist
+        
+        # Build for different platforms
+        GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/dns-set-linux-amd64 ./cmd/dns-set
+        GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/dns-set-linux-arm64 ./cmd/dns-set
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/dns-set-darwin-amd64 ./cmd/dns-set
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/dns-set-darwin-arm64 ./cmd/dns-set
+        GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/dns-set-windows-amd64.exe ./cmd/dns-set
+        GOOS=windows GOARCH=arm64 go build -ldflags="-s -w" -o dist/dns-set-windows-arm64.exe ./cmd/dns-set
+        
+        # Create checksums
+        cd dist
+        sha256sum * > checksums.txt
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.tag.outputs.tag }}
+        name: Release ${{ steps.tag.outputs.tag }}
+        draft: true
+        prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
+        generate_release_notes: true
+        files: |
+          dist/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
