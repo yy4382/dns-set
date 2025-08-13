@@ -29,3 +29,5 @@ dns-set
 .env.*
 !.env.example
 .env
+
+.config/

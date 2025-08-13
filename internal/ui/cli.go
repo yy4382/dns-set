@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
+	"golang.org/x/term"
 	"github.com/yy4382/dns-set/internal/config"
 	"github.com/yy4382/dns-set/internal/dns"
 	"github.com/yy4382/dns-set/internal/domain"
@@ -278,4 +280,53 @@ func (c *CLI) promptCaddyfilePath(defaultPath string) (string, error) {
 
 	fmt.Printf("Using Caddyfile: %s\n", resolvedPath)
 	return resolvedPath, nil
+}
+
+func (c *CLI) PromptAndSaveAPIToken(configPath string) (string, error) {
+	fmt.Println("\n=== Cloudflare API Token Required ===")
+	fmt.Println("To use dns-set with Cloudflare, you need to provide an API token.")
+	fmt.Println("You can create one at: https://dash.cloudflare.com/profile/api-tokens")
+	fmt.Println("Make sure the token has the following permissions:")
+	fmt.Println("  - Zone:Read")
+	fmt.Println("  - DNS:Edit")
+	fmt.Print("\nPlease enter your Cloudflare API token (input will be hidden): ")
+
+	tokenBytes, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", fmt.Errorf("failed to read API token: %w", err)
+	}
+	fmt.Println()
+
+	token := strings.TrimSpace(string(tokenBytes))
+	if token == "" {
+		return "", fmt.Errorf("API token cannot be empty")
+	}
+
+	if len(token) < 40 {
+		fmt.Println("Warning: The entered token seems too short. Cloudflare API tokens are typically 40+ characters.")
+		fmt.Print("Do you want to continue anyway? (y/N): ")
+		
+		if !c.scanner.Scan() {
+			return "", fmt.Errorf("failed to read confirmation")
+		}
+		
+		confirmation := strings.TrimSpace(strings.ToLower(c.scanner.Text()))
+		if confirmation != "y" && confirmation != "yes" {
+			return "", fmt.Errorf("API token setup cancelled")
+		}
+	}
+
+	newConfig := &config.Config{
+		Cloudflare: config.CloudflareConfig{
+			APIToken: token,
+		},
+		Preferences: c.config.Preferences,
+	}
+
+	if err := config.SaveToPath(newConfig, configPath); err != nil {
+		return "", fmt.Errorf("failed to save configuration: %w", err)
+	}
+
+	fmt.Printf("✓ API token saved to configuration file\n")
+	return token, nil
 }

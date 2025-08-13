@@ -24,6 +24,10 @@ type PreferencesConfig struct {
 }
 
 func Load() (*Config, error) {
+	return LoadWithConfigPath("")
+}
+
+func LoadWithConfigPath(configPath string) (*Config, error) {
 	if err := loadEnvFiles(); err != nil {
 		return nil, fmt.Errorf("failed to load .env files: %w", err)
 	}
@@ -31,11 +35,15 @@ func Load() (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	
-	configDir, err := getConfigDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get config directory: %w", err)
+	if configPath != "" {
+		viper.SetConfigFile(configPath)
+	} else {
+		configDir, err := getConfigDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get config directory: %w", err)
+		}
+		viper.AddConfigPath(configDir)
 	}
-	viper.AddConfigPath(configDir)
 
 	viper.SetEnvPrefix("DNS_SET")
 	viper.AutomaticEnv()
@@ -60,20 +68,35 @@ func Load() (*Config, error) {
 }
 
 func Save(config *Config) error {
-	configDir, err := getConfigDir()
-	if err != nil {
-		return fmt.Errorf("failed to get config directory: %w", err)
-	}
+	return SaveToPath(config, "")
+}
 
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+func SaveToPath(config *Config, configPath string) error {
+	var finalConfigPath string
+	
+	if configPath != "" {
+		finalConfigPath = configPath
+		configDir := filepath.Dir(configPath)
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			return fmt.Errorf("failed to create config directory: %w", err)
+		}
+	} else {
+		configDir, err := getConfigDir()
+		if err != nil {
+			return fmt.Errorf("failed to get config directory: %w", err)
+		}
+
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			return fmt.Errorf("failed to create config directory: %w", err)
+		}
+		
+		finalConfigPath = filepath.Join(configDir, "config.yaml")
 	}
 
 	viper.Set("cloudflare", config.Cloudflare)
 	viper.Set("preferences", config.Preferences)
 
-	configPath := filepath.Join(configDir, "config.yaml")
-	if err := viper.WriteConfigAs(configPath); err != nil {
+	if err := viper.WriteConfigAs(finalConfigPath); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
