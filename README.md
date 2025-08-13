@@ -84,7 +84,7 @@ preferences:
 
 1. Go to [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens)
 2. Create a custom token with:
-   - **Permissions**: Zone:Read, DNS:Edit
+   - **Permissions**: `Zone.DNS`
    - **Zone Resources**: Include all zones or specific zones you want to manage
 3. Use the token in config file or `CLOUDFLARE_API_TOKEN` environment variable
 
@@ -111,8 +111,6 @@ go test ./...
 - [x] Interactive CLI interface
 - [ ] Terminal UI (TUI) interface
 - [ ] Additional DNS providers (planned)
-- [ ] Batch operations
-- [ ] Daemon mode for automatic updates
 
 ## License
 
