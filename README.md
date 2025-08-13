@@ -1,5 +1,7 @@
 # dns-set
 
+English | [简体中文](README.zh-CN.md)
+
 A command-line tool for automatically managing DNS records on DNS providers, designed to run on VPS servers.
 
 ## Features
@@ -89,8 +91,6 @@ preferences:
 3. Use the token in config file or `CLOUDFLARE_API_TOKEN` environment variable
 
 ## Development
-
-This project follows Test-Driven Development principles with focus on testable, modular code.
 
 ### Building from source
 ```bash
