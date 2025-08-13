@@ -79,7 +79,7 @@ sub.example.org {
 		t.Run(test.name, func(t *testing.T) {
 			tmpDir := t.TempDir()
 			caddyfilePath := filepath.Join(tmpDir, "Caddyfile")
-			
+
 			err := os.WriteFile(caddyfilePath, []byte(test.content), 0644)
 			require.NoError(t, err)
 

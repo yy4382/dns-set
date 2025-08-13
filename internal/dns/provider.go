@@ -19,7 +19,7 @@ type Record struct {
 }
 
 type DNSProvider interface {
-	UpdateRecord(domain string, recordType RecordType, ip net.IP, ttl int, proxied bool) error
+	UpdateRecord(domain string, recordType RecordType, ip net.IP, ttl *int, proxied bool) error
 	ListRecords(domain string) ([]Record, error)
 	Name() string
 }
