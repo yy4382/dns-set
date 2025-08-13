@@ -1,0 +1,217 @@
+package ui
+
+import (
+	"bufio"
+	"fmt"
+	"net"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/yy4382/dns-set/internal/config"
+	"github.com/yy4382/dns-set/internal/dns"
+	"github.com/yy4382/dns-set/internal/domain"
+	"github.com/yy4382/dns-set/internal/ip"
+)
+
+type CLI struct {
+	config   *config.Config
+	provider dns.DNSProvider
+	scanner  *bufio.Scanner
+}
+
+func NewCLI(cfg *config.Config, provider dns.DNSProvider) *CLI {
+	return &CLI{
+		config:  cfg,
+		provider: provider,
+		scanner: bufio.NewScanner(os.Stdin),
+	}
+}
+
+func (c *CLI) Run() error {
+	fmt.Printf("=== DNS Setter - %s Provider ===\n\n", c.provider.Name())
+
+	domainSource, err := c.selectDomainSource()
+	if err != nil {
+		return fmt.Errorf("failed to select domain source: %w", err)
+	}
+
+	domains, err := domainSource.GetDomains()
+	if err != nil {
+		return fmt.Errorf("failed to get domains: %w", err)
+	}
+
+	selectedDomains, err := c.selectDomains(domains)
+	if err != nil {
+		return fmt.Errorf("failed to select domains: %w", err)
+	}
+
+	ipDetector, err := c.selectIPDetector()
+	if err != nil {
+		return fmt.Errorf("failed to select IP detector: %w", err)
+	}
+
+	recordTypes, err := c.selectRecordTypes()
+	if err != nil {
+		return fmt.Errorf("failed to select record types: %w", err)
+	}
+
+	for _, recordType := range recordTypes {
+		var ip net.IP
+		var err error
+
+		if recordType == dns.RecordTypeA {
+			ip, err = ipDetector.GetIPv4()
+		} else {
+			ip, err = ipDetector.GetIPv6()
+		}
+
+		if err != nil {
+			fmt.Printf("Failed to get %s address: %v\n", recordType, err)
+			continue
+		}
+
+		fmt.Printf("\nDetected %s address: %s\n", recordType, ip.String())
+
+		for _, domain := range selectedDomains {
+			fmt.Printf("Updating %s record for %s...\n", recordType, domain)
+			
+			err = c.provider.UpdateRecord(domain, recordType, ip, c.config.Preferences.DefaultTTL)
+			if err != nil {
+				fmt.Printf("Failed to update %s record for %s: %v\n", recordType, domain, err)
+			} else {
+				fmt.Printf("Successfully updated %s record for %s\n", recordType, domain)
+			}
+		}
+	}
+
+	fmt.Println("\nDNS update completed!")
+	return nil
+}
+
+func (c *CLI) selectDomainSource() (domain.DomainSource, error) {
+	fmt.Println("Select domain source:")
+	fmt.Println("1. Manual input")
+	fmt.Println("2. Caddyfile")
+
+	choice, err := c.promptChoice("Enter choice (1-2): ", 1, 2)
+	if err != nil {
+		return nil, err
+	}
+
+	switch choice {
+	case 1:
+		return domain.NewManualSource(), nil
+	case 2:
+		return domain.NewCaddyfileSource(c.config.Preferences.CaddyfilePath), nil
+	default:
+		return nil, fmt.Errorf("invalid choice")
+	}
+}
+
+func (c *CLI) selectDomains(domains []string) ([]string, error) {
+	if len(domains) == 1 {
+		fmt.Printf("Found domain: %s\n", domains[0])
+		return domains, nil
+	}
+
+	fmt.Printf("\nFound %d domains:\n", len(domains))
+	for i, domain := range domains {
+		fmt.Printf("%d. %s\n", i+1, domain)
+	}
+
+	fmt.Println("Select domains to update (comma-separated numbers, or 'all'):")
+	c.scanner.Scan()
+	input := strings.TrimSpace(c.scanner.Text())
+
+	if input == "all" {
+		return domains, nil
+	}
+
+	var selected []string
+	parts := strings.Split(input, ",")
+	
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		index, err := strconv.Atoi(part)
+		if err != nil || index < 1 || index > len(domains) {
+			return nil, fmt.Errorf("invalid selection: %s", part)
+		}
+		selected = append(selected, domains[index-1])
+	}
+
+	if len(selected) == 0 {
+		return nil, fmt.Errorf("no domains selected")
+	}
+
+	return selected, nil
+}
+
+func (c *CLI) selectIPDetector() (ip.IPDetector, error) {
+	fmt.Println("\nSelect IP detection method:")
+	fmt.Println("1. Network interface")
+	fmt.Println("2. External API (ip.sb)")
+	fmt.Println("3. Manual input")
+
+	choice, err := c.promptChoice("Enter choice (1-3): ", 1, 3)
+	if err != nil {
+		return nil, err
+	}
+
+	switch choice {
+	case 1:
+		return ip.NewInterfaceDetector(), nil
+	case 2:
+		return ip.NewAPIDetector(), nil
+	case 3:
+		return ip.NewManualDetector(), nil
+	default:
+		return nil, fmt.Errorf("invalid choice")
+	}
+}
+
+func (c *CLI) selectRecordTypes() ([]dns.RecordType, error) {
+	fmt.Println("\nSelect record types to update:")
+	fmt.Println("1. IPv4 (A) only")
+	fmt.Println("2. IPv6 (AAAA) only")
+	fmt.Println("3. Both IPv4 and IPv6")
+
+	choice, err := c.promptChoice("Enter choice (1-3): ", 1, 3)
+	if err != nil {
+		return nil, err
+	}
+
+	switch choice {
+	case 1:
+		return []dns.RecordType{dns.RecordTypeA}, nil
+	case 2:
+		return []dns.RecordType{dns.RecordTypeAAAA}, nil
+	case 3:
+		return []dns.RecordType{dns.RecordTypeA, dns.RecordTypeAAAA}, nil
+	default:
+		return nil, fmt.Errorf("invalid choice")
+	}
+}
+
+func (c *CLI) promptChoice(prompt string, min, max int) (int, error) {
+	for {
+		fmt.Print(prompt)
+		if !c.scanner.Scan() {
+			return 0, fmt.Errorf("failed to read input")
+		}
+
+		input := strings.TrimSpace(c.scanner.Text())
+		choice, err := strconv.Atoi(input)
+		if err != nil {
+			fmt.Printf("Please enter a number between %d and %d\n", min, max)
+			continue
+		}
+
+		if choice < min || choice > max {
+			fmt.Printf("Please enter a number between %d and %d\n", min, max)
+			continue
+		}
+
+		return choice, nil
+	}
+}
