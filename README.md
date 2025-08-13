@@ -61,7 +61,6 @@ The tool automatically loads environment variables from `.env` files in the foll
 Example `.env` file:
 ```bash
 CLOUDFLARE_API_TOKEN=your-api-token-here
-DNS_SET_IP_SOURCE=api
 DNS_SET_CADDYFILE_PATH=/custom/path/Caddyfile
 ```
 
@@ -69,7 +68,6 @@ DNS_SET_CADDYFILE_PATH=/custom/path/Caddyfile
 All configuration options can be overridden with environment variables:
 
 - `CLOUDFLARE_API_TOKEN`: Cloudflare API token
-- `DNS_SET_IP_SOURCE`: Preferred IP detection method (`interface`, `api`, `manual`)
 - `DNS_SET_CADDYFILE_PATH`: Custom Caddyfile location
 - `DNS_SET_CONFIG_DIR`: Custom config directory location (overrides default `~/.config/dns-set/`)
 
@@ -78,7 +76,6 @@ All configuration options can be overridden with environment variables:
 cloudflare:
   api_token: "your-token-here"
 preferences:
-  ip_source: "api"  # interface, api, or manual
   caddyfile_path: "/etc/caddy/Caddyfile"
   default_ttl: 300
 ```

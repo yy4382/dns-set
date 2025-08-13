@@ -13,7 +13,6 @@ func TestLoad_DefaultValues(t *testing.T) {
 	config, err := Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, "api", config.Preferences.IPSource)
 	assert.Equal(t, "/etc/caddy/Caddyfile", config.Preferences.CaddyfilePath)
 	assert.Equal(t, 300, config.Preferences.DefaultTTL)
 }
@@ -27,7 +26,6 @@ func TestLoad_WithConfigFile(t *testing.T) {
 	configContent := `cloudflare:
   api_token: "test-token"
 preferences:
-  ip_source: "interface"
   caddyfile_path: "/custom/Caddyfile"
   default_ttl: 600`
 
@@ -43,27 +41,22 @@ preferences:
 	require.NoError(t, err)
 
 	assert.Equal(t, "test-token", config.Cloudflare.APIToken)
-	assert.Equal(t, "interface", config.Preferences.IPSource)
 	assert.Equal(t, "/custom/Caddyfile", config.Preferences.CaddyfilePath)
 	assert.Equal(t, 600, config.Preferences.DefaultTTL)
 }
 
 func TestLoad_WithEnvironmentVariables(t *testing.T) {
 	oldToken := os.Getenv("CLOUDFLARE_API_TOKEN")
-	oldIPSource := os.Getenv("DNS_SET_IP_SOURCE")
 	defer func() {
 		os.Setenv("CLOUDFLARE_API_TOKEN", oldToken)
-		os.Setenv("DNS_SET_IP_SOURCE", oldIPSource)
 	}()
 
 	os.Setenv("CLOUDFLARE_API_TOKEN", "env-token")
-	os.Setenv("DNS_SET_IP_SOURCE", "manual")
 
 	config, err := Load()
 	require.NoError(t, err)
 
 	assert.Equal(t, "env-token", config.Cloudflare.APIToken)
-	assert.Equal(t, "manual", config.Preferences.IPSource)
 }
 
 func TestLoad_WithDotEnvFile(t *testing.T) {
@@ -73,17 +66,13 @@ func TestLoad_WithDotEnvFile(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	oldToken := os.Getenv("CLOUDFLARE_API_TOKEN")
-	oldIPSource := os.Getenv("DNS_SET_IP_SOURCE")
 	defer func() {
 		os.Setenv("CLOUDFLARE_API_TOKEN", oldToken)
-		os.Setenv("DNS_SET_IP_SOURCE", oldIPSource)
 	}()
 	
 	os.Unsetenv("CLOUDFLARE_API_TOKEN")
-	os.Unsetenv("DNS_SET_IP_SOURCE")
 
-	envContent := `CLOUDFLARE_API_TOKEN=dotenv-token
-DNS_SET_IP_SOURCE=interface`
+	envContent := `CLOUDFLARE_API_TOKEN=dotenv-token`
 
 	err := os.WriteFile(".env", []byte(envContent), 0644)
 	require.NoError(t, err)
@@ -92,7 +81,6 @@ DNS_SET_IP_SOURCE=interface`
 	require.NoError(t, err)
 
 	assert.Equal(t, "dotenv-token", config.Cloudflare.APIToken)
-	assert.Equal(t, "interface", config.Preferences.IPSource)
 }
 
 func TestLoad_WithCustomConfigDir(t *testing.T) {
@@ -129,7 +117,6 @@ func TestSave(t *testing.T) {
 			APIToken: "test-token",
 		},
 		Preferences: PreferencesConfig{
-			IPSource:      "interface",
 			CaddyfilePath: "/test/Caddyfile",
 			DefaultTTL:    600,
 		},
@@ -145,7 +132,6 @@ func TestSave(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, config.Cloudflare.APIToken, loadedConfig.Cloudflare.APIToken)
-	assert.Equal(t, config.Preferences.IPSource, loadedConfig.Preferences.IPSource)
 	assert.Equal(t, config.Preferences.CaddyfilePath, loadedConfig.Preferences.CaddyfilePath)
 	assert.Equal(t, config.Preferences.DefaultTTL, loadedConfig.Preferences.DefaultTTL)
 }

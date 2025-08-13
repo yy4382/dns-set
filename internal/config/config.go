@@ -19,7 +19,6 @@ type CloudflareConfig struct {
 }
 
 type PreferencesConfig struct {
-	IPSource       string `mapstructure:"ip_source"`        // "interface", "api", "manual"
 	CaddyfilePath  string `mapstructure:"caddyfile_path"`
 	DefaultTTL     int    `mapstructure:"default_ttl"`
 }
@@ -42,7 +41,6 @@ func Load() (*Config, error) {
 	viper.AutomaticEnv()
 
 	viper.BindEnv("cloudflare.api_token", "CLOUDFLARE_API_TOKEN")
-	viper.BindEnv("preferences.ip_source", "DNS_SET_IP_SOURCE")
 	viper.BindEnv("preferences.caddyfile_path", "DNS_SET_CADDYFILE_PATH")
 
 	setDefaults()
@@ -125,7 +123,6 @@ func loadEnvFiles() error {
 }
 
 func setDefaults() {
-	viper.SetDefault("preferences.ip_source", "api")
 	viper.SetDefault("preferences.caddyfile_path", "/etc/caddy/Caddyfile")
 	viper.SetDefault("preferences.default_ttl", 300)
 }
