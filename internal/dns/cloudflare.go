@@ -22,7 +22,7 @@ func NewCloudflareProvider(apiToken string) (*CloudflareProvider, error) {
 	return &CloudflareProvider{api: api}, nil
 }
 
-func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, ip net.IP, ttl int, proxied bool) error {
+func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, ip net.IP, ttl *int, proxied bool) error {
 	ctx := context.Background()
 
 	zoneID, err := c.getZoneID(ctx, domain)
@@ -40,17 +40,24 @@ func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, 
 	}
 
 	ipStr := ip.String()
-	// Use TTL auto (1) when TTL is set to auto
-	if ttl == 0 {
-		ttl = 1 // Cloudflare's auto TTL
+	// Determine actual TTL value to use
+	var actualTTL int
+	if ttl == nil {
+		actualTTL = 1 // Cloudflare's auto TTL when no TTL specified in config
+	} else {
+		actualTTL = *ttl
+		// Use TTL auto (1) when TTL is explicitly set to 0
+		if actualTTL == 0 {
+			actualTTL = 1
+		}
 	}
-	
+
 	if len(records) == 0 {
 		_, err = c.api.CreateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.CreateDNSRecordParams{
 			Name:    recordName,
 			Type:    string(recordType),
 			Content: ipStr,
-			TTL:     ttl,
+			TTL:     actualTTL,
 			Proxied: &proxied,
 		})
 		if err != nil {
@@ -69,7 +76,7 @@ func (c *CloudflareProvider) UpdateRecord(domain string, recordType RecordType, 
 			Name:    recordName,
 			Type:    string(recordType),
 			Content: ipStr,
-			TTL:     ttl,
+			TTL:     actualTTL,
 			Proxied: &proxied,
 		})
 		if err != nil {
@@ -115,7 +122,7 @@ func (c *CloudflareProvider) ListRecords(domain string) ([]Record, error) {
 func (c *CloudflareProvider) getZoneID(ctx context.Context, domain string) (string, error) {
 	// Extract root domain from subdomain (e.g., test.yyang.dev -> yyang.dev)
 	rootDomain := extractRootDomain(domain)
-	
+
 	zones, err := c.api.ListZones(ctx, rootDomain)
 	if err != nil {
 		return "", fmt.Errorf("failed to list zones: %w", err)
@@ -135,7 +142,7 @@ func extractRootDomain(domain string) string {
 	if len(parts) <= 2 {
 		return domain // Already a root domain or invalid
 	}
-	
+
 	// Return last two parts (domain.tld)
 	return strings.Join(parts[len(parts)-2:], ".")
 }

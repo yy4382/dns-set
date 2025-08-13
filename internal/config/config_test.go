@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +15,7 @@ func TestLoad_DefaultValues(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "/etc/caddy/Caddyfile", config.Preferences.CaddyfilePath)
-	assert.Equal(t, 300, config.Preferences.DefaultTTL)
+	assert.Nil(t, config.Preferences.DefaultTTL)
 }
 
 func TestLoad_WithConfigFile(t *testing.T) {
@@ -42,7 +43,8 @@ preferences:
 
 	assert.Equal(t, "test-token", config.Cloudflare.APIToken)
 	assert.Equal(t, "/custom/Caddyfile", config.Preferences.CaddyfilePath)
-	assert.Equal(t, 600, config.Preferences.DefaultTTL)
+	assert.NotNil(t, config.Preferences.DefaultTTL)
+	assert.Equal(t, 600, *config.Preferences.DefaultTTL)
 }
 
 func TestLoad_WithEnvironmentVariables(t *testing.T) {
@@ -69,7 +71,7 @@ func TestLoad_WithDotEnvFile(t *testing.T) {
 	defer func() {
 		os.Setenv("CLOUDFLARE_API_TOKEN", oldToken)
 	}()
-	
+
 	os.Unsetenv("CLOUDFLARE_API_TOKEN")
 
 	envContent := `CLOUDFLARE_API_TOKEN=dotenv-token`
@@ -112,13 +114,14 @@ func TestSave(t *testing.T) {
 	defer os.Setenv("HOME", oldHome)
 	os.Setenv("HOME", tmpDir)
 
+	ttl := 600
 	config := &Config{
 		Cloudflare: CloudflareConfig{
 			APIToken: "test-token",
 		},
 		Preferences: PreferencesConfig{
 			CaddyfilePath: "/test/Caddyfile",
-			DefaultTTL:    600,
+			DefaultTTL:    &ttl,
 		},
 	}
 
@@ -134,4 +137,34 @@ func TestSave(t *testing.T) {
 	assert.Equal(t, config.Cloudflare.APIToken, loadedConfig.Cloudflare.APIToken)
 	assert.Equal(t, config.Preferences.CaddyfilePath, loadedConfig.Preferences.CaddyfilePath)
 	assert.Equal(t, config.Preferences.DefaultTTL, loadedConfig.Preferences.DefaultTTL)
+}
+
+func TestLoad_WithNullTTL(t *testing.T) {
+	// Reset viper state to avoid interference from other tests
+	viper.Reset()
+
+	tmpDir := t.TempDir()
+	configDir := filepath.Join(tmpDir, ".config", "dns-set")
+	err := os.MkdirAll(configDir, 0755)
+	require.NoError(t, err)
+
+	configContent := `cloudflare:
+  api_token: "test-token"
+preferences:
+  caddyfile_path: "/custom/Caddyfile"`
+
+	configPath := filepath.Join(configDir, "config.yaml")
+	err = os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+	os.Setenv("HOME", tmpDir)
+
+	config, err := LoadWithConfigPath(configPath)
+	require.NoError(t, err)
+
+	assert.Equal(t, "test-token", config.Cloudflare.APIToken)
+	assert.Equal(t, "/custom/Caddyfile", config.Preferences.CaddyfilePath)
+	assert.Nil(t, config.Preferences.DefaultTTL)
 }

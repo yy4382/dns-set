@@ -10,11 +10,11 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/term"
 	"github.com/yy4382/dns-set/internal/config"
 	"github.com/yy4382/dns-set/internal/dns"
 	"github.com/yy4382/dns-set/internal/domain"
 	"github.com/yy4382/dns-set/internal/ip"
+	"golang.org/x/term"
 )
 
 type CLI struct {
@@ -25,9 +25,9 @@ type CLI struct {
 
 func NewCLI(cfg *config.Config, provider dns.DNSProvider) *CLI {
 	return &CLI{
-		config:  cfg,
+		config:   cfg,
 		provider: provider,
-		scanner: bufio.NewScanner(os.Stdin),
+		scanner:  bufio.NewScanner(os.Stdin),
 	}
 }
 
@@ -83,9 +83,8 @@ func (c *CLI) Run() error {
 
 		for _, domain := range selectedDomains {
 			fmt.Printf("Updating %s record for %s...\n", recordType, domain)
-			
-			// Use TTL auto (0) instead of config default
-			err = c.provider.UpdateRecord(domain, recordType, ip, 0, proxied)
+
+			err = c.provider.UpdateRecord(domain, recordType, ip, c.config.Preferences.DefaultTTL, proxied)
 			if err != nil {
 				fmt.Printf("Failed to update %s record for %s: %v\n", recordType, domain, err)
 			} else {
@@ -147,7 +146,7 @@ func (c *CLI) selectDomains(domains []string) ([]string, error) {
 
 	var selected []string
 	parts := strings.Split(input, ",")
-	
+
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		index, err := strconv.Atoi(part)
@@ -253,11 +252,11 @@ func (c *CLI) promptCaddyfilePath(defaultPath string) (string, error) {
 
 	fmt.Printf("Caddyfile not found at %s\n", defaultPath)
 	fmt.Print("Please enter Caddyfile path (absolute or relative to current directory): ")
-	
+
 	if !c.scanner.Scan() {
 		return "", fmt.Errorf("failed to read input")
 	}
-	
+
 	userPath := strings.TrimSpace(c.scanner.Text())
 	if userPath == "" {
 		return "", fmt.Errorf("no path provided")
@@ -305,11 +304,11 @@ func (c *CLI) PromptAndSaveAPIToken(configPath string) (string, error) {
 	if len(token) < 40 {
 		fmt.Println("Warning: The entered token seems too short. Cloudflare API tokens are typically 40+ characters.")
 		fmt.Print("Do you want to continue anyway? (y/N): ")
-		
+
 		if !c.scanner.Scan() {
 			return "", fmt.Errorf("failed to read confirmation")
 		}
-		
+
 		confirmation := strings.TrimSpace(strings.ToLower(c.scanner.Text()))
 		if confirmation != "y" && confirmation != "yes" {
 			return "", fmt.Errorf("API token setup cancelled")

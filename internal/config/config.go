@@ -10,17 +10,17 @@ import (
 )
 
 type Config struct {
-	Cloudflare  CloudflareConfig `mapstructure:"cloudflare"`
+	Cloudflare  CloudflareConfig  `mapstructure:"cloudflare"`
 	Preferences PreferencesConfig `mapstructure:"preferences"`
 }
 
 type CloudflareConfig struct {
-	APIToken string `mapstructure:"api_token"`
+	APIToken string `mapstructure:"api_token" yaml:"api_token"`
 }
 
 type PreferencesConfig struct {
-	CaddyfilePath  string `mapstructure:"caddyfile_path"`
-	DefaultTTL     int    `mapstructure:"default_ttl"`
+	CaddyfilePath string `mapstructure:"caddyfile_path" yaml:"caddyfile_path"`
+	DefaultTTL    *int   `mapstructure:"default_ttl" yaml:"default_ttl"`
 }
 
 func Load() (*Config, error) {
@@ -34,7 +34,7 @@ func LoadWithConfigPath(configPath string) (*Config, error) {
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	
+
 	if configPath != "" {
 		viper.SetConfigFile(configPath)
 	} else {
@@ -73,7 +73,7 @@ func Save(config *Config) error {
 
 func SaveToPath(config *Config, configPath string) error {
 	var finalConfigPath string
-	
+
 	if configPath != "" {
 		finalConfigPath = configPath
 		configDir := filepath.Dir(configPath)
@@ -89,7 +89,7 @@ func SaveToPath(config *Config, configPath string) error {
 		if err := os.MkdirAll(configDir, 0755); err != nil {
 			return fmt.Errorf("failed to create config directory: %w", err)
 		}
-		
+
 		finalConfigPath = filepath.Join(configDir, "config.yaml")
 	}
 
@@ -128,7 +128,7 @@ func loadEnvFiles() error {
 
 	configDir, err := getConfigDir()
 	if err == nil {
-		envPaths = append(envPaths, 
+		envPaths = append(envPaths,
 			filepath.Join(configDir, ".env"),
 			filepath.Join(configDir, ".env.local"),
 		)
@@ -147,5 +147,4 @@ func loadEnvFiles() error {
 
 func setDefaults() {
 	viper.SetDefault("preferences.caddyfile_path", "/etc/caddy/Caddyfile")
-	viper.SetDefault("preferences.default_ttl", 300)
 }
