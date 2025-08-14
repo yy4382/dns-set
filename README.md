@@ -24,6 +24,19 @@ Perfect for VPS administrators who need to:
 
 ## Installation
 
+### Quick Install (Recommended)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/yy4382/dns-set/master/install.sh | bash
+```
+
+Or for user-only installation:
+```bash
+curl -sSL https://raw.githubusercontent.com/yy4382/dns-set/master/install.sh | bash -s -- --user
+```
+
+### Alternative: Go Install
+
 ```bash
 go install github.com/yy4382/dns-set@latest
 ```
