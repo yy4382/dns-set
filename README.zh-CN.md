@@ -24,6 +24,21 @@
 
 ## 安装
 
+### 快速安装（推荐）
+
+```bash
+curl -sSL https://raw.githubusercontent.com/yy4382/dns-set/master/install.sh | bash
+```
+
+或者为当前用户安装：
+```bash
+curl -sSL https://raw.githubusercontent.com/yy4382/dns-set/master/install.sh | bash -s -- --user
+```
+
+然后您就可以使用 `dns-set` CLI 命令了。如果提示命令未找到，请检查 `/usr/local/bin`（全局安装）或 `$HOME/local/bin`（用户安装）是否在您的系统 `$PATH` 中。
+
+### 替代方案：Go Install
+
 ```bash
 go install github.com/yy4382/dns-set@latest
 ```

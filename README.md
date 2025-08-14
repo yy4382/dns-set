@@ -35,6 +35,8 @@ Or for user-only installation:
 curl -sSL https://raw.githubusercontent.com/yy4382/dns-set/master/install.sh | bash -s -- --user
 ```
 
+Then you should have access to the `dns-set` cli command. If not command is not found, check if `/usr/local/bin` (global install) or `$HOME/local/bin` (user install) is in your system `$PATH`.
+
 ### Alternative: Go Install
 
 ```bash
