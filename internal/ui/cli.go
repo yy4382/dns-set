@@ -286,8 +286,8 @@ func (c *CLI) PromptAndSaveAPIToken(configPath string) (string, error) {
 	fmt.Println("To use dns-set with Cloudflare, you need to provide an API token.")
 	fmt.Println("You can create one at: https://dash.cloudflare.com/profile/api-tokens")
 	fmt.Println("Make sure the token has the following permissions:")
-	fmt.Println("  - Zone:Read")
-	fmt.Println("  - DNS:Edit")
+	fmt.Println("  - Zone.DNS")
+	fmt.Println("  - Resources that you want to update")
 	fmt.Print("\nPlease enter your Cloudflare API token (input will be hidden): ")
 
 	tokenBytes, err := term.ReadPassword(int(syscall.Stdin))
